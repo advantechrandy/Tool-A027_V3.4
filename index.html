@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCB Thermal Conductivity Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax for LaTeX rendering -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+        :root {
+            --bg-main: #0d1117; 
+            --bg-card: #1c2128; 
+            --accent-blue: #7dd3fc; 
+            --accent-green: #86efac; 
+            --border-color: #444c56; 
+            --text-primary: #f0f6fc; 
+            --text-secondary: #adbac7; 
+        }
+
+        body {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.6;
+            user-select: none; /* 防止文字被選取 */
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .industrial-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        }
+
+        .input-group {
+            position: relative;
+            background: #22272e;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .input-group:focus-within {
+            border-color: var(--accent-blue);
+            background: #2d333b;
+            box-shadow: 0 0 0 2px rgba(125, 211, 252, 0.3);
+        }
+
+        input[type="number"] {
+            background: transparent;
+            border: none;
+            color: var(--accent-blue);
+            width: 100%;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.15rem;
+            font-weight: 700;
+            outline: none;
+        }
+
+        .label-text {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+            font-weight: 700;
+        }
+
+        .result-display {
+            background: #2d333b;
+            border-left: 5px solid var(--accent-blue);
+        }
+
+        .btn-calc {
+            background: #2ea043; 
+            color: white;
+            padding: 1rem;
+            border-radius: 6px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(46, 160, 67, 0.2);
+        }
+
+        .btn-calc:hover {
+            background: #3fb950;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(46, 160, 67, 0.4);
+        }
+
+        .mjx-chtml { margin: 0 !important; }
+        
+        header {
+            background: #1c2128;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 0;
+        }
+
+        .unit-tag {
+            font-size: 0.7rem;
+            background: #444c56;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #f0f6fc;
+            margin-left: 6px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="container mx-auto px-6 flex justify-between items-center">
+        <div class="flex items-center space-x-4">
+            <div class="w-10 h-10 bg-sky-500 rounded flex items-center justify-center shadow-lg shadow-sky-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight text-white uppercase">PCB XYZ方向導熱係數計算 V3.4</h1>
+                <p class="text-[11px] text-sky-400 mono leading-none font-bold">SYS_ANALYSIS_MOD: v2.7.0 // CREATED BY RANDY CHEN</p>
+            </div>
+        </div>
+        <div class="hidden md:block">
+            <div class="flex items-center space-x-6 text-xs mono text-slate-400">
+                <span>STATUS: <span class="text-green-400 font-bold">OPTIMIZED</span></span>
+                <span>CORE: MATH_V4</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="container mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Input Panel -->
+        <div class="lg:col-span-5 space-y-6">
+            <div class="industrial-card p-6">
+                <h3 class="text-sm font-black text-white uppercase tracking-widest mb-6 flex items-center">
+                    <span class="w-1.5 h-4 bg-sky-500 mr-3"></span> 幾何結構輸入
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="input-group">
+                        <label class="label-text">PCB 面積 <span class="unit-tag">$A \, (mm^2)$</span></label>
+                        <input type="number" id="area" value="10000">
+                    </div>
+                    <div class="input-group">
+                        <label class="label-text">PCB 層數 <span class="unit-tag">$N_{layer}$</span></label>
+                        <input type="number" id="layers" value="4">
+                    </div>
+                    <div class="input-group">
+                        <label class="label-text">銅箔重量 <span class="unit-tag">$oz$</span></label>
+                        <input type="number" id="oz" value="1" step="0.5">
+                    </div>
+                    <div class="input-group">
+                        <label class="label-text">PCB 總厚度 <span class="unit-tag">$H \, (mm)$</span></label>
+                        <input type="number" id="thickness" value="1.6" step="0.1">
+                    </div>
+                </div>
+
+                <div class="mt-8">
+                    <h3 class="text-sm font-black text-white uppercase tracking-widest mb-4">導通孔參數 (Thermal Via)</h3>
+                    <div class="space-y-4">
+                        <div class="input-group">
+                            <label class="label-text">Via 總數量 <span class="unit-tag">$N_{via}$</span></label>
+                            <input type="number" id="vias" value="100">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="input-group">
+                                <label class="label-text">鑽孔直徑 <span class="unit-tag">$D_{v} \, (mm)$</span></label>
+                                <input type="number" id="via_dia" value="0.3" step="0.05">
+                            </div>
+                            <div class="input-group">
+                                <label class="label-text">鍍層厚度 <span class="unit-tag">$t_{p} \, (mm)$</span></label>
+                                <input type="number" id="via_plating" value="0.025" step="0.005">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="calculate()" class="btn-calc w-full mt-8 flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    執行計算分析
+                </button>
+            </div>
+
+            <div class="industrial-card p-6">
+                <h3 class="text-sm font-black text-white uppercase tracking-widest mb-4">材料物性設定</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="input-group">
+                        <label class="label-text">銅 $k_{cu} \, (W/mK)$</label>
+                        <input type="number" id="k_cu" value="390">
+                    </div>
+                    <div class="input-group">
+                        <label class="label-text">基材 $k_{fr4} \, (W/mK)$</label>
+                        <input type="number" id="k_fr4" value="0.3" step="0.05">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Panel -->
+        <div class="lg:col-span-7 space-y-6">
+            <div class="industrial-card p-8">
+                <div class="flex justify-between items-start mb-8">
+                    <h2 class="text-2xl font-black text-white flex items-center">
+                        有效導熱係數報告
+                    </h2>
+                    <span class="px-3 py-1 bg-sky-500 text-slate-900 text-xs mono rounded font-black uppercase">W/(m·K)</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="result-display p-6 rounded-r-lg">
+                        <p class="label-text !text-sky-300">平面方向 (X-Y Plane)</p>
+                        <div class="flex items-baseline">
+                            <span id="res_kx" class="text-6xl font-black text-white tracking-tighter">--</span>
+                            <span class="ml-2 text-sky-400 font-bold italic">eff</span>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-sky-400 font-bold uppercase">
+                            <span class="w-2 h-2 bg-sky-400 rounded-full mr-2"></span> 並聯導熱模型
+                        </div>
+                    </div>
+
+                    <div class="result-display p-6 rounded-r-lg" style="border-left-color: var(--accent-green);">
+                        <p class="label-text !text-green-300">垂直方向 (Z-Axis)</p>
+                        <div class="flex items-baseline">
+                            <span id="res_kz" class="text-6xl font-black text-white tracking-tighter">--</span>
+                            <span class="ml-2 text-green-400 font-bold italic">eff</span>
+                        </div>
+                        <div class="mt-4 flex items-center text-xs text-green-400 font-bold uppercase">
+                            <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span> Thermal Via 強化模型
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-10">
+                    <h4 class="text-xs font-black text-white uppercase tracking-widest mb-4">關鍵分析變數</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-[#2d333b] p-4 border border-slate-600 rounded">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">銅體積比 $v_{cu}$</p>
+                            <p id="sub_cu_vol" class="mono text-sky-300 text-base font-black">--</p>
+                        </div>
+                        <div class="bg-[#2d333b] p-4 border border-slate-600 rounded">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">Via 截面積 $A_{v}$</p>
+                            <p id="sub_via_area" class="mono text-sky-300 text-base font-black">--</p>
+                        </div>
+                        <div class="bg-[#2d333b] p-4 border border-slate-600 rounded">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">孔佔比 $f_{v}$</p>
+                            <p id="sub_via_ratio" class="mono text-sky-300 text-base font-black">--</p>
+                        </div>
+                        <div class="bg-[#2d333b] p-4 border border-slate-600 rounded">
+                            <p class="text-[10px] text-slate-400 uppercase font-bold mb-1">總銅厚 $H_{cu}$</p>
+                            <p id="sub_total_cu_h" class="mono text-sky-300 text-base font-black">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formula Info -->
+                <div class="mt-10 p-6 bg-[#0d1117] border border-slate-700 rounded-lg text-sm shadow-inner">
+                    <h5 class="text-white font-black mb-4 uppercase flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        物理計算邏輯
+                    </h5>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-slate-300">
+                        <div class="bg-[#1c2128] p-4 rounded border border-slate-800">
+                            <p class="mb-3 text-sky-300 font-bold border-b border-sky-900 pb-1">X-Y 平面模型：</p>
+                            <p class="text-base font-mono mb-2">$$k_{xy} = \frac{\sum k_i t_i}{\sum t_i}$$</p>
+                            <p class="text-xs text-slate-400">視為銅層與 FR4 層之熱並聯，受銅佔比主導。</p>
+                        </div>
+                        <div class="bg-[#1c2128] p-4 rounded border border-slate-800">
+                            <p class="mb-3 text-green-300 font-bold border-b border-green-900 pb-1">Z 軸垂直模型：</p>
+                            <p class="text-base font-mono mb-2">$$k_{z} = (1-f_v)k_{z,b} + f_v k_{cu}$$</p>
+                            <p class="text-xs text-slate-400">基體熱串聯後與導通孔並聯，Via 密度是提升關鍵。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // 阻擋右鍵選單
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    }, false);
+
+    function calculate() {
+        try {
+            // Get Input Values
+            const area = parseFloat(document.getElementById('area').value) || 1; 
+            const layers = parseInt(document.getElementById('layers').value) || 0;
+            const oz = parseFloat(document.getElementById('oz').value) || 0;
+            const totalH = parseFloat(document.getElementById('thickness').value) || 1; 
+            const numVias = parseInt(document.getElementById('vias').value) || 0;
+            const viaDia = parseFloat(document.getElementById('via_dia').value) || 0; 
+            const viaPlat = parseFloat(document.getElementById('via_plating').value) || 0; 
+            const k_cu = parseFloat(document.getElementById('k_cu').value) || 390;
+            const k_fr4 = parseFloat(document.getElementById('k_fr4').value) || 0.3;
+
+            // 1. 銅厚度計算 (1oz = 0.035mm)
+            const cuH_single = oz * 0.035; 
+            const cuH_total = cuH_single * layers;
+            const fr4H_total = totalH - cuH_total;
+
+            if (fr4H_total <= 0) {
+                document.getElementById('res_kx').innerText = "ERR";
+                document.getElementById('res_kz').innerText = "ERR";
+                return;
+            }
+
+            // 2. 平面方向導熱 (並聯)
+            const k_xy = ((k_cu * cuH_total) + (k_fr4 * fr4H_total)) / totalH;
+
+            // 3. Via 導熱分析
+            const r_out = viaDia / 2;
+            const r_in = r_out - viaPlat;
+            const singleViaCuArea = (r_in < 0) ? Math.PI * Math.pow(r_out, 2) : Math.PI * (Math.pow(r_out, 2) - Math.pow(r_in, 2));
+            const totalViaCuArea = singleViaCuArea * numVias;
+            const viaAreaRatio = totalViaCuArea / area;
+
+            // 4. 垂直方向基體導熱 (串聯)
+            const k_z_base = totalH / ((cuH_total / k_cu) + (fr4H_total / k_fr4));
+
+            // 5. 最終 Z 軸有效導熱 (基體與 Via 並聯)
+            const k_z_eff = (k_z_base * (1 - viaAreaRatio)) + (k_cu * viaAreaRatio);
+
+            // Update UI
+            document.getElementById('res_kx').innerText = k_xy.toFixed(2);
+            document.getElementById('res_kz').innerText = k_z_eff.toFixed(2);
+
+            document.getElementById('sub_cu_vol').innerText = ((cuH_total/totalH)*100).toFixed(2) + "%";
+            document.getElementById('sub_via_area').innerText = singleViaCuArea.toFixed(4) + " mm²";
+            document.getElementById('sub_via_ratio').innerText = (viaAreaRatio * 100).toFixed(4) + "%";
+            document.getElementById('sub_total_cu_h').innerText = cuH_total.toFixed(3) + " mm";
+            
+            // Re-render MathJax
+            if (window.MathJax && window.MathJax.typeset) {
+                window.MathJax.typeset();
+            }
+        } catch (e) {
+            console.error("Calculation Error:", e);
+        }
+    }
+
+    // Initialize
+    window.onload = () => calculate();
+</script>
+
+</body>
+</html>
